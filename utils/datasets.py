@@ -1,4 +1,5 @@
 import os
+import re
 import random
 import torch
 import numpy as np
@@ -148,15 +149,15 @@ def lp_generator(
 
             batches_feasibilities[p] = feasibility
             
-            np.savetxt(os.path.join(path, "ConFeatures.csv"), 
+            np.savetxt(os.path.join(path, "con_features.csv"), 
                        np.hstack((b.reshape(num_constraints, 1), constraint_types.reshape(num_constraints, 1))), 
                        delimiter=',', fmt='%10.5f')
-            np.savetxt(os.path.join(path, "EdgeFeatures.csv"), edge_feature, fmt='%10.5f')
-            np.savetxt(os.path.join(path, "EdgeIndices.csv"), edge_index, delimiter=',', fmt='%d')
-            np.savetxt(os.path.join(path, "VarFeatures.csv"), 
+            np.savetxt(os.path.join(path, "edge_features.csv"), edge_feature, fmt='%10.5f')
+            np.savetxt(os.path.join(path, "edge_indices.csv"), edge_index, delimiter=',', fmt='%d')
+            np.savetxt(os.path.join(path, "var_features.csv"), 
                        np.hstack((c.reshape(num_variables, 1), bounds)), 
                        delimiter=',', fmt='%10.5f')
-            np.savetxt(os.path.join(path, "Labels_feas.csv"), [feasibility], fmt='%d')
+            np.savetxt(os.path.join(path, "labels_feas.csv"), [feasibility], fmt='%d')
 
     # To verify the objective value and solution of the problem, the generated data contains only feasible problems
     else:
@@ -191,16 +192,69 @@ def lp_generator(
 
             batches_feasibilities[p] = feasibility
             
-            np.savetxt(os.path.join(path, "ConFeatures.csv"), 
+            np.savetxt(os.path.join(path, "con_features.csv"), 
                        np.hstack((b.reshape(num_constraints, 1), constraint_types.reshape(num_constraints, 1))), 
                        delimiter=',', fmt='%10.5f')
-            np.savetxt(os.path.join(path, "EdgeFeatures.csv"), edge_feature, fmt='%10.5f')
-            np.savetxt(os.path.join(path, "EdgeIndices.csv"), edge_index, delimiter=',', fmt='%d')
-            np.savetxt(os.path.join(path, "VarFeatures.csv"), 
+            np.savetxt(os.path.join(path, "edge_features.csv"), edge_feature, fmt='%10.5f')
+            np.savetxt(os.path.join(path, "edge_indices.csv"), edge_index, delimiter=',', fmt='%d')
+            np.savetxt(os.path.join(path, "var_features.csv"), 
                        np.hstack((c.reshape(num_variables, 1), bounds)), 
                        delimiter=',', fmt='%10.5f')
-            np.savetxt(os.path.join(path, "Labels_feas.csv"), [feasibility], fmt='%d')
+            np.savetxt(os.path.join(path, "labels_feas.csv"), [feasibility], fmt='%d')
 
             p += 1
 
-lp_generator(50, 50, 10, 'feas')
+# lp_generator(50, 50, 10, 'feas')
+
+def load_from_file(base_path = "./data"):
+    
+    batches_cs = []
+    batches_bs = []
+    batches_As = []
+    batches_edge_indexes = []
+    batches_constraint_types = []
+    batches_lower_bounds = []
+    batches_upper_bounds = []
+    batches_solutions = []
+    batches_feasibilities = []
+    
+    problem_dirs = sorted(
+        [d for d in os.listdir(base_path) if re.match(r"problem\d+", d)]
+    )
+    
+    for problem_dir in problem_dirs:
+        problem_path = os.path.join(base_path, problem_dir)
+        
+        con_features = np.loadtxt(os.path.join(problem_path, "con_features.csv"), delimiter=",")
+        batches_bs.append(torch.tensor(con_features[:, 0], dtype=torch.float32))
+        batches_constraint_types.append(torch.tensor(con_features[:, 1], dtype=torch.float32))
+        
+        edge_features = np.loadtxt(os.path.join(problem_path, "edge_features.csv"))
+        batches_edge_indexes.append(torch.tensor(edge_features, dtype=torch.float32))
+        
+        edge_indices = np.loadtxt(os.path.join(problem_path, "edge_indices.csv"), delimiter=",")
+        batches_edge_indexes.append(torch.tensor(edge_indices, dtype=torch.long))
+        
+        var_features = np.loadtxt(os.path.join(problem_path, "var_features.csv"), delimiter=",")
+        batches_cs.append(torch.tensor(var_features[:, 0], dtype=torch.float32))
+        batches_lower_bounds.append(torch.tensor(var_features[:, 1], dtype=torch.float32))
+        batches_upper_bounds.append(torch.tensor(var_features[:, 2], dtype=torch.float32))
+        
+        labels = np.loadtxt(os.path.join(problem_path, "labels_feas.csv"))
+        batches_feasibilities.append(torch.tensor(labels, dtype=torch.float32))
+    
+    return {
+        "batches_cs": batches_cs,
+        "batches_bs": batches_bs,
+        "batches_As": batches_As,
+        "batches_edge_indexes": batches_edge_indexes,
+        "batches_constraint_types": batches_constraint_types,
+        "batches_lower_bounds": batches_lower_bounds,
+        "batches_upper_bounds": batches_upper_bounds,
+        "batches_solutions": batches_solutions,
+        "batches_feasibilities": batches_feasibilities,
+    }
+
+
+# lp_data = load_from_file()
+# print(f"Loaded data for {len(lp_data['batches_cs'])} problems.")
